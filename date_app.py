@@ -1,11 +1,10 @@
 import streamlit as st
-import random
+import google.generativeai as genai
 
-# --- 1. AYARLAR VE SAHTE VERİ TABANI ---
+# --- AYARLAR ---
 st.set_page_config(page_title="AI Love Match", page_icon="💘", layout="wide")
 
-# Gerçek bir uygulamada burası bir SQL veritabanı olurdu.
-# Şimdilik "mock" (sahte) verilerle çalışıyoruz.
+# --- SAHTE VERİ TABANI ---
 MOCK_USERS = [
     {"name": "Ayşe", "age": 22, "gender": "Kadın", "interests": ["Müzik", "Seyahat", "Kahve"],
      "img": "https://randomuser.me/api/portraits/women/44.jpg"},
@@ -20,105 +19,63 @@ MOCK_USERS = [
 ]
 
 
-# --- 2. FONKSİYONLAR ---
+# --- GEMINI AI FONKSİYONU ---
+def get_gemini_response(api_key, name, interests, gender):
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-pro')
 
-def ai_bio_generator(name, interests):
-    """
-    Basit bir kural tabanlı yapay zeka simülasyonu.
-    Gerçek uygulamada buraya Gemini veya GPT API bağlanır.
-    """
-    templates = [
-        f"Selam ben {name}! {', '.join(interests)} konularına bayılırım. Benimle bu konuları konuşmaya ne dersin?",
-        f"{name} burada! Hayat mottom: {interests[0]} ve {interests[-1]}.",
-        f"Enerjik, {interests[0]} tutkunu ve {interests[1]} aşığı. Ben {name}, tanışalım mı?"
-    ]
-    return random.choice(templates)
+        prompt = f"""
+        Sen bir flört uygulaması uzmanısın. Aşağıdaki kişi için çok havalı, 
+        biraz flörtöz ve ilgi çekici kısa bir Instagram biyografisi yaz.
 
+        İsim: {name}
+        Cinsiyet: {gender}
+        İlgi Alanları: {', '.join(interests)}
 
-def calculate_match_score(user_interests, candidate_interests):
-    """
-    İki kişinin ilgi alanlarını karşılaştırıp %0-100 arası skor üretir.
-    """
-    set_user = set(user_interests)
-    set_candidate = set(candidate_interests)
-
-    # Ortak ilgi alanlarını bul
-    intersection = set_user.intersection(set_candidate)
-
-    # Skor mantığı: Her ortak ilgi alanı 33 puan (Maks 100)
-    score = len(intersection) * 33
-
-    # Bonus: Tamamen alakasızsa bile %10 şans ver (Aşkın tesadüfleri!)
-    if score == 0:
-        score = 10
-    if score > 100:
-        score = 100
-
-    return score, list(intersection)
+        Lütfen emojiler kullan ve samimi ol. Sadece biyografiyi yaz.
+        """
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Hata: Anahtar yanlış olabilir. ({str(e)})"
 
 
-# --- 3. ARAYÜZ TASARIMI (UI) ---
+# --- ARAYÜZ ---
+st.title("💘 AI Love Match: Gerçek Yapay Zeka")
 
-st.title("💘 AI Love Match: Yapay Zeka Destekli Eşleşme")
-
-# Sol Panel: Kullanıcı Profili
 with st.sidebar:
+    st.header("🔑 Önce Anahtarı Gir")
+    api_key = st.text_input("Google API Key", type="password", help="aistudio.google.com adresinden alabilirsin")
+    st.divider()
+
     st.header("Profilini Oluştur")
     my_name = st.text_input("Adın", "Misafir")
-    my_gender = st.selectbox("Cinsiyetin", ["Erkek", "Kadın", "Belirtmek İstemiyorum"])
-    target_gender = st.selectbox("Kimi Arıyorsun?", ["Kadın", "Erkek", "Herkes"])
+    my_gender = st.selectbox("Cinsiyetin", ["Erkek", "Kadın"])
 
-    # İlgi Alanları
-    all_interests = ["Yazılım", "Fitness", "Müzik", "Seyahat", "Kitap", "Sinema", "Oyun", "Sanat", "Yemek", "Kamp",
-                     "Kahve", "Fotoğrafçılık"]
-    my_interests = st.multiselect("İlgi Alanların (En az 1 tane seç)", all_interests, default=["Müzik", "Seyahat"])
+    all_interests = ["Yazılım", "Fitness", "Müzik", "Seyahat", "Kitap", "Sinema", "Oyun", "Sanat", "Yemek"]
+    my_interests = st.multiselect("İlgi Alanların", all_interests, default=["Müzik"])
 
-    # AI Bio Butonu
-    if st.button("✨ Yapay Zekaya Biyografi Yazdır"):
-        if my_interests:
-            generated_bio = ai_bio_generator(my_name, my_interests)
-            st.success("YZ Senin İçin Yazdı:")
-            st.info(f"Draft: {generated_bio}")
+    if st.button("✨ Yapay Zeka Biyografimi Yazsın!"):
+        if not api_key:
+            st.error("Lütfen önce en üstteki kutuya API Key yapıştır!")
+        elif not my_interests:
+            st.warning("İlgi alanı seçmelisin.")
         else:
-            st.warning("Lütfen önce ilgi alanı seç.")
+            with st.spinner("Yapay zeka seni analiz ediyor..."):
+                bio = get_gemini_response(api_key, my_name, my_interests, my_gender)
+                st.success("İşte Senin Biyografin:")
+                st.info(bio)
 
-# Ana Ekran: Eşleşmeler
-st.header(f"Selam {my_name}, İşte Sana En Uygun Adaylar!")
-st.write("Yapay zeka algoritmamız ilgi alanlarına göre uyumluluk analizi yapıyor...")
-st.divider()
-
+# Ana Ekran
 if not my_interests:
-    st.warning("Eşleşmeleri görmek için sol taraftan ilgi alanlarını seçmelisin!")
+    st.info("👈 Başlamak için soldan profilini doldur.")
 else:
-    # Eşleşme Mantığı
-    matches = []
-    for user in MOCK_USERS:
-        # Cinsiyet Filtresi
-        if target_gender != "Herkes" and user["gender"] != target_gender:
-            continue
-
-        score, common_tags = calculate_match_score(my_interests, user["interests"])
-        user["score"] = score
-        user["common"] = common_tags
-        matches.append(user)
-
-    # Skora göre sırala (Yüksekten düşüğe)
-    matches = sorted(matches, key=lambda x: x["score"], reverse=True)
-
-    # Eşleşmeleri Göster
+    st.subheader("Sana Uygun Adaylar")
     col1, col2, col3 = st.columns(3)
-
-    for i, match in enumerate(matches):
-        # Kartları 3 sütuna dağıt
+    for i, user in enumerate(MOCK_USERS):
         with [col1, col2, col3][i % 3]:
-            st.image(match["img"], width=150)
-            st.subheader(f"{match['name']}, {match['age']}")
-
-            # Skor Barı
-            st.progress(match["score"])
-            st.caption(f"Uyum Skoru: %{match['score']}")
-
-            st.write(
-                f"**Ortak Noktalar:** {', '.join(match['common']) if match['common'] else 'Zıt kutuplar birbirini çeker!'}")
-            st.button(f"Sohbet Et ({match['name']})", key=i)
+            st.image(user["img"], width=150)
+            st.write(f"**{user['name']}, {user['age']}**")
+            st.caption(", ".join(user["interests"]))
             st.divider()
