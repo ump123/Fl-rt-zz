@@ -23,7 +23,7 @@ MOCK_USERS = [
 def get_gemini_response(api_key, name, interests, gender):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         prompt = f"""
         Sen bir flört uygulaması uzmanısın. Aşağıdaki kişi için çok havalı, 
